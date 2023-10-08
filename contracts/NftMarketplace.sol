@@ -1,111 +1,191 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract NftMarketplace is ReentrancyGuard, Ownable {
-    using Counters for Counters.Counter;
-    Counters.Counter private marketplaceIds;
-    Counters.Counter private totalMarketplaceItemsSold;
+error NftMarketplace__PriceMustBeAboveZero();
+error NftMarketplace__NotApprovedForMarketplace();
+error NftMarketplace__PriceNotMet();
+error NftMarketplace__AlreadyListed();
+error NftMarketplace__NotListed();
+error NftMarketplace__NotNftOwner();
+error NftMarketplace__NotOwner();
+error NftMarketplace__NoProceeds();
+error NftMarketplace__TransferFailed();
 
-    mapping(uint => Listing) private marketplaceIdToListingItem;
-
+contract NftMarketplace is ERC721Holder, ReentrancyGuard {
     struct Listing {
-        uint marketplaceId;
-        address nftAddress;
-        uint tokenId;
-        address payable seller;
-        address payable owner;
-        uint listPrice;
+        address seller;
+        uint256 listPrice;
     }
 
+    mapping(address => mapping(uint256 => Listing)) private s_listings;
+    mapping(address => uint256) s_proceeds;
+
+    uint256 private s_marketplaceFees;
+    address private immutable OWNER;
+
     event ListingCreated(
-        uint indexed marketplaceId,
         address indexed nftAddress,
-        uint indexed tokenId,
+        uint256 indexed tokenId,
         address seller,
-        address owner,
-        uint listPrice
+        uint256 listPrice
     );
 
+    event ListingBought(
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        address buyer,
+        uint256 price
+    );
+
+    event ListingCancelled(
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        address indexed seller
+    );
+
+    modifier shouldNotBeListed(address nftAddress, uint256 tokenId) {
+        Listing memory listing = s_listings[nftAddress][tokenId];
+        if (listing.listPrice > 0) {
+            revert NftMarketplace__AlreadyListed();
+        }
+        _;
+    }
+
+    modifier isListed(address nftAddress, uint256 tokenId) {
+        Listing memory listing = s_listings[nftAddress][tokenId];
+        if (listing.listPrice <= 0) {
+            revert NftMarketplace__NotListed();
+        }
+        _;
+    }
+
+    modifier isNftOwner(address nftAddress, uint256 tokenId) {
+        IERC721 nft = IERC721(nftAddress);
+        address owner = nft.ownerOf(tokenId);
+        if (owner != msg.sender) {
+            revert NftMarketplace__NotNftOwner();
+        }
+        _;
+    }
+
+    modifier isMarketplaceOwner() {
+        if (OWNER != msg.sender) {
+            revert NftMarketplace__NotNftOwner();
+        }
+        _;
+    }
+
+    constructor(uint256 fees) {
+        OWNER = msg.sender;
+        s_marketplaceFees = fees;
+    }
+
     function createListing(
-        uint tokenId,
         address nftAddress,
-        uint price
-    ) public nonReentrant {
-        require(price > 0, "List price must be 1 wei >=");
-        marketplaceIds.increment();
-        uint marketplaceItemId = marketplaceIds.current();
-        marketplaceIdToListingItem[marketplaceItemId] = Listing(
-            marketplaceItemId,
-            nftAddress,
-            tokenId,
-            payable(msg.sender),
-            payable(address(0)),
-            price
-        );
-        IERC721(nftAddress).transferFrom(msg.sender, address(this), tokenId);
-        emit ListingCreated(
-            marketplaceItemId,
-            nftAddress,
-            tokenId,
-            msg.sender,
-            address(0),
-            price
-        );
+        uint256 tokenId,
+        uint256 price
+    )
+        external
+        shouldNotBeListed(nftAddress, tokenId)
+        isNftOwner(nftAddress, tokenId)
+    {
+        if (price <= 0) {
+            revert NftMarketplace__PriceMustBeAboveZero();
+        }
+        if (IERC721(nftAddress).getApproved(tokenId) != address(this)) {
+            revert NftMarketplace__NotApprovedForMarketplace();
+        }
+
+        s_listings[nftAddress][tokenId] = Listing({
+            seller: msg.sender,
+            listPrice: price
+        });
+
+        emit ListingCreated(nftAddress, tokenId, msg.sender, price);
     }
 
     function buyListing(
-        uint marketplaceItemId,
-        address nftAddress
-    ) public payable nonReentrant {
-        uint price = marketplaceIdToListingItem[marketplaceItemId].listPrice;
-        require(
-            msg.value == price,
-            "Value sent does not meet list price for NFT"
+        address nftAddress,
+        uint256 tokenId
+    ) external payable isListed(nftAddress, tokenId) nonReentrant {
+        Listing memory listing = s_listings[nftAddress][tokenId];
+        uint256 price = listing.listPrice;
+        if (msg.value != price) {
+            revert NftMarketplace__PriceNotMet();
+        }
+
+        uint256 valueEarned = (price * (100 - s_marketplaceFees)) / 100;
+        s_proceeds[listing.seller] += valueEarned;
+        s_listings[nftAddress][tokenId].listPrice = 0; // Remove the listing
+
+        IERC721(nftAddress).safeTransferFrom(
+            listing.seller,
+            msg.sender,
+            tokenId
         );
-        uint tokenId = marketplaceIdToListingItem[marketplaceItemId].tokenId;
-        marketplaceIdToListingItem[marketplaceItemId].seller.transfer(
-            msg.value
-        );
-        IERC721(nftAddress).transferFrom(address(this), msg.sender, tokenId);
-        marketplaceIdToListingItem[marketplaceItemId].owner = payable(
-            msg.sender
-        );
-        totalMarketplaceItemsSold.increment();
+
+        emit ListingBought(nftAddress, tokenId, msg.sender, price);
     }
 
-    function getMarketItem(
-        uint marketplaceItemId
-    ) public view returns (Listing memory) {
-        return marketplaceIdToListingItem[marketplaceItemId];
+    function cancelListing(
+        address nftAddress,
+        uint256 tokenId
+    )
+        external
+        isListed(nftAddress, tokenId)
+        isNftOwner(nftAddress, tokenId)
+        nonReentrant
+    {
+        delete s_listings[nftAddress][tokenId];
+        emit ListingCancelled(nftAddress, tokenId, msg.sender);
     }
 
-    function getMyListedNFTs() public view returns (Listing[] memory) {
-        uint totalListingCount = marketplaceIds.current();
-        uint listingCount = 0;
-        uint index = 0;
+    function updateListing(
+        address nftAddress,
+        uint256 tokenId,
+        uint256 newPrice
+    ) external isListed(nftAddress, tokenId) isNftOwner(nftAddress, tokenId) {
+        s_listings[nftAddress][tokenId].listPrice = newPrice;
+        emit ListingCreated(nftAddress, tokenId, msg.sender, newPrice);
+    }
 
-        for (uint i = 0; i < totalListingCount; i++) {
-            if (marketplaceIdToListingItem[i + 1].owner == msg.sender) {
-                listingCount += 1;
-            }
+    function withdrawProceeds() external {
+        uint256 proceeds = s_proceeds[msg.sender];
+        if (proceeds <= 0) {
+            revert NftMarketplace__NoProceeds();
         }
-        Listing[] memory items = new Listing[](listingCount);
-        for (uint i = 0; i < totalListingCount; i++) {
-            if (marketplaceIdToListingItem[i + 1].owner == msg.sender) {
-                uint currentId = marketplaceIdToListingItem[i + 1]
-                    .marketplaceId;
-                Listing memory currentItem = marketplaceIdToListingItem[
-                    currentId
-                ];
-                items[index] = currentItem;
-                index += 1;
-            }
+        s_proceeds[msg.sender] = 0;
+
+        (bool success, ) = payable(msg.sender).call{value: proceeds}("");
+        if (success) {
+            revert NftMarketplace__TransferFailed();
         }
-        return items;
+    }
+
+    function setMarketplaceFees(uint256 newFees) external isMarketplaceOwner {
+        s_marketplaceFees = newFees;
+    }
+
+    /////////////////////
+    // Getter Functions //
+    /////////////////////
+
+    function getListing(
+        address nftAddress,
+        uint256 tokenId
+    ) external view returns (Listing memory) {
+        return s_listings[nftAddress][tokenId];
+    }
+
+    function getProceeds(address seller) external view returns (uint256) {
+        return s_proceeds[seller];
+    }
+
+    function getMarketplaceFees() external view returns (uint256) {
+        return s_marketplaceFees;
     }
 }

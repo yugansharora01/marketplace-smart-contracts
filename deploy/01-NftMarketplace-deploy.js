@@ -2,6 +2,8 @@ const { network } = require("hardhat");
 const { developmentChains } = require("../helper-hardhat-config");
 const { verify } = require("../utils/verify");
 
+const MARKETPLACE_FEES = 2;
+
 module.exports = async ({
   getNamedAccounts,
   deployments,
@@ -11,10 +13,12 @@ module.exports = async ({
   const { deploy, log } = deployments;
   const { deployer } = await getNamedAccounts();
 
+  const args = [MARKETPLACE_FEES];
   // the following will only deploy "GenericMetaTxProcessor" if the contract was never deployed or if the code changed since last deployment
   const marketplace = await deploy("NftMarketplace", {
     from: deployer,
     gasLimit: 4000000,
+    args: args,
     log: true,
     waitConfirmations: network.config.blockConfirmations || 1,
   });
@@ -23,7 +27,7 @@ module.exports = async ({
     !developmentChains.includes(network.name) &&
     process.env.ETHERSCAN_API_KEY
   ) {
-    await verify(marketplace.address, []);
+    await verify(marketplace.address, args);
   }
 
   log("----------------------------------------------------------------");

@@ -2,6 +2,9 @@ const { network } = require("hardhat");
 const { developmentChains } = require("../helper-hardhat-config");
 const { verify } = require("../utils/verify");
 
+const NFT_NAME = "Nexus";
+const NFT_SYMBOL = "Nex";
+
 module.exports = async ({
   getNamedAccounts,
   deployments,
@@ -11,11 +14,12 @@ module.exports = async ({
   const { deploy, log } = deployments;
   const { deployer } = await getNamedAccounts();
 
-  // the following will only deploy "GenericMetaTxProcessor" if the contract was never deployed or if the code changed since last deployment
+  const args = [NFT_NAME, NFT_SYMBOL];
   const nft = await deploy("NFT", {
     from: deployer,
     gasLimit: 4000000,
     log: true,
+    args: args,
     waitConfirmations: network.config.blockConfirmations || 1,
   });
 
@@ -23,7 +27,7 @@ module.exports = async ({
     !developmentChains.includes(network.name) &&
     process.env.ETHERSCAN_API_KEY
   ) {
-    await verify(nft.address, []);
+    await verify(nft.address, args);
   }
 
   log("----------------------------------------------------------------");

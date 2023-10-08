@@ -11,13 +11,20 @@ contract NFT is ERC721, ERC721URIStorage, Ownable {
 
     Counters.Counter private _tokenIdCounter;
 
-    constructor() ERC721("YOUR_NFTS_NAME", "YOUR_NFTS_SYMBOL") {}
+    constructor(
+        string memory name,
+        string memory symbol
+    ) ERC721(name, symbol) {}
 
-    function safeMint(address to, string memory uri) public onlyOwner {
+    function safeMint(
+        address to,
+        string memory uri
+    ) public onlyOwner returns (uint256) {
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
+        return tokenId;
     }
 
     function _burn(
