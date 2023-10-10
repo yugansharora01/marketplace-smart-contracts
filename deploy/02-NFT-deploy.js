@@ -33,4 +33,4 @@ module.exports = async ({
   log("----------------------------------------------------------------");
 };
 
-module.exports.tags = ["all", "nft"];
+module.exports.tags = ["all", "NFT"];
