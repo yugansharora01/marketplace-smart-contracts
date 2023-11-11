@@ -8,8 +8,12 @@ const networkconfig = {
 };
 
 const developmentChains = ["hardhat", "localhost"];
+const frontEndContractsFile = "../marketplace/constants/networkMapping.json";
+const frontEndAbiLocation = "../marketplace/constants/";
 
 module.exports = {
   networkconfig,
   developmentChains,
+  frontEndContractsFile,
+  frontEndAbiLocation,
 };
