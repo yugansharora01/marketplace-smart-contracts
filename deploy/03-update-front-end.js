@@ -47,10 +47,16 @@ async function updateContractAddresses() {
         nftMarketplace.address
       )
     ) {
-      contractAddresses[chainId]["NftMarketplace"].push(nftMarketplace.address);
+      contractAddresses[chainId]["NftMarketplace"].splice(
+        0,
+        0,
+        nftMarketplace.address
+      );
+      //contractAddresses[chainId]["NftMarketplace"].push(nftMarketplace.address);
     }
     if (!contractAddresses[chainId]["Nft"].includes(Nft.address)) {
-      contractAddresses[chainId]["Nft"].push(Nft.address);
+      //contractAddresses[chainId]["Nft"].push(Nft.address);
+      contractAddresses[chainId]["Nft"].splice(0, 0, Nft.address);
     }
   } else {
     contractAddresses[chainId] = { NftMarketplace: [nftMarketplace.address] };

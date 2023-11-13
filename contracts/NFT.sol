@@ -11,6 +11,8 @@ contract NFT is ERC721, ERC721URIStorage, Ownable {
 
     Counters.Counter private _tokenIdCounter;
 
+    event Minted(uint256 indexed tokenId);
+
     constructor(
         string memory name,
         string memory symbol
@@ -24,7 +26,8 @@ contract NFT is ERC721, ERC721URIStorage, Ownable {
         _tokenIdCounter.increment();
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
-        return tokenId;
+        emit Minted(tokenId);
+        return _tokenIdCounter.current();
     }
 
     function _burn(

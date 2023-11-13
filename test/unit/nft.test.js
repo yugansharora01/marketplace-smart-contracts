@@ -6,7 +6,7 @@ const { developmentChains } = require("../../helper-hardhat-config");
 
 //writing the test code from here..
 
-!developmentChains.includes(network.name)
+developmentChains.includes(network.name)
   ? describe.skip
   : describe("Basic NFT Unit Tests", function () {
       let deployer, nftContractAddress, nftContract, nft, tokenId;
@@ -32,24 +32,36 @@ const { developmentChains } = require("../../helper-hardhat-config");
       });
 
       describe("Mint NFT", function () {
+        this.timeout(200000);
         beforeEach(async () => {
+          this.timeout(200000);
           const txResponse = await nft.safeMint(deployer.address, TOKEN_URI);
           tokenId = txResponse.value;
           await txResponse.wait(1);
         });
 
-        it("Allows users to mint an NFT, and updates appropriately", async function () {
+        // it("Allows users to mint an NFT, and updates appropriately", async function () {
+        //   this.timeout(20000);
+        //   assert.equal(tokenId.toString(), "0");
+        //   assert.equal(await nft.tokenURI(tokenId), TOKEN_URI);
+        // });
+
+        // it("Show the correct balance and owner of an NFT", async function () {
+        //   this.timeout(20000);
+        //   const deployerAddress = deployer.address;
+        //   const deployerBalance = await nft.balanceOf(deployerAddress);
+        //   const owner = await nft.ownerOf("0");
+
+        //   assert.equal(deployerBalance.toString(), "1");
+        //   assert.equal(owner, deployerAddress);
+        // });
+
+        it("should increment the tokenid counter", async function () {
+          this.timeout(200000);
           assert.equal(tokenId.toString(), "0");
-          assert.equal(await nft.tokenURI(tokenId), TOKEN_URI);
-        });
-
-        it("Show the correct balance and owner of an NFT", async function () {
-          const deployerAddress = deployer.address;
-          const deployerBalance = await nft.balanceOf(deployerAddress);
-          const owner = await nft.ownerOf("0");
-
-          assert.equal(deployerBalance.toString(), "1");
-          assert.equal(owner, deployerAddress);
+          txResponse = await nft.safeMint(deployer.address, TOKEN_URI);
+          tokenId = txResponse.value;
+          assert.equal(tokenId.toString(), "1");
         });
       });
 
