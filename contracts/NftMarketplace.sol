@@ -14,7 +14,9 @@ error NftMarketplace__NotNftOwner();
 error NftMarketplace__NotOwner();
 error NftMarketplace__NoProceeds();
 error NftMarketplace__TransferFailed();
+error NftMarketplace__FeesTransferFailed();
 error NftMarketplace__NotMarketplaceOwner();
+error NftMarketplace__SellerCannotBuy();
 
 contract NftMarketplace is ERC721Holder, ReentrancyGuard {
     struct Listing {
@@ -127,12 +129,23 @@ contract NftMarketplace is ERC721Holder, ReentrancyGuard {
             revert NftMarketplace__PriceNotMet();
         }
 
+        if (msg.sender == listing.seller) {
+            revert NftMarketplace__SellerCannotBuy();
+        }
+
         uint256 feesAmount = (price * s_marketplaceFees) / 100;
         //uint256 valueEarned = (price * (100 - s_marketplaceFees)) / 100;
-        s_proceeds[listing.seller] += (price - feesAmount);
+        uint256 sellingValue = price - feesAmount;
+        s_proceeds[listing.seller] += sellingValue;
 
         (bool success, ) = payable(OWNER).call{value: feesAmount}("");
+        (bool success1, ) = payable(address(this)).call{value: sellingValue}(
+            ""
+        );
         if (!success) {
+            revert NftMarketplace__FeesTransferFailed();
+        }
+        if (!success1) {
             revert NftMarketplace__TransferFailed();
         }
 
@@ -188,6 +201,8 @@ contract NftMarketplace is ERC721Holder, ReentrancyGuard {
     function setMarketplaceFees(uint256 newFees) external isMarketplaceOwner {
         s_marketplaceFees = newFees;
     }
+
+    receive() external payable {}
 
     /////////////////////
     // Getter Functions //

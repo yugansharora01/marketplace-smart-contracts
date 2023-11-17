@@ -160,8 +160,10 @@ const { developmentChains } = require("../../helper-hardhat-config");
             tokenId,
             PRICE
           );
+
+          let nftMarketplace1 = nftMarketplaceContract.connect(user);
           await expect(
-            nftMarketplace.buyListing(nftContractAddress, tokenId, {
+            nftMarketplace1.buyListing(nftContractAddress, tokenId, {
               value: PRICE,
             })
           ).to.emit(nftMarketplace, "ListingBought");
@@ -173,7 +175,9 @@ const { developmentChains } = require("../../helper-hardhat-config");
             tokenId,
             PRICE
           );
-          await nftMarketplace.buyListing(nftContractAddress, tokenId, {
+
+          let nftMarketplace1 = nftMarketplaceContract.connect(user);
+          await nftMarketplace1.buyListing(nftContractAddress, tokenId, {
             value: PRICE,
           });
           const proceed = await nftMarketplace.getProceeds(deployer.address);
@@ -181,6 +185,55 @@ const { developmentChains } = require("../../helper-hardhat-config");
           const expectedFees = parseInt(PRICE * marketplaceFees) / 100;
           const expectedProceed = parseInt(PRICE) - expectedFees;
           assert(expectedProceed.toString() == proceed.toString());
+        });
+
+        it("should deduct and tranfer money to contract", async () => {
+          const price = ethers.parseEther("10");
+          const startingFundMeBalance = await ethers.provider.getBalance(
+            nftMarketplaceContractAddress
+          );
+          const startingUserBalance = await ethers.provider.getBalance(user);
+          let transactionResponse = await nftMarketplace.createListing(
+            nftContractAddress,
+            tokenId,
+            price
+          );
+
+          let nftMarketplace1 = nftMarketplaceContract.connect(user);
+          transactionResponse = await nftMarketplace1.buyListing(
+            nftContractAddress,
+            tokenId,
+            {
+              value: price,
+            }
+          );
+          let transactionReceipt = await transactionResponse.wait(1);
+          let { gasUsed, gasPrice } = transactionReceipt;
+          const gasCostInBuying = gasUsed * gasPrice;
+
+          const marketplaceFees = 2;
+          const expectedFees = (parseInt(price) * marketplaceFees) / 100;
+          const expectedProceed = parseInt(price) - expectedFees;
+
+          const EndingFundMeBalance = await ethers.provider.getBalance(
+            nftMarketplaceContractAddress
+          );
+          const EndingUserBalance = await ethers.provider.getBalance(user);
+          const expectedUserBalance =
+            EndingUserBalance + gasCostInBuying + price;
+          console.log(startingUserBalance.toString());
+          console.log(EndingUserBalance.toString());
+          assert.equal(
+            startingUserBalance.toString(),
+            expectedUserBalance.toString()
+          );
+          const expectedContractBalance =
+            parseInt(startingFundMeBalance) + expectedProceed;
+          //console.log(expectedContractBalance);
+          assert.equal(
+            EndingFundMeBalance.toString(),
+            expectedContractBalance.toString()
+          );
         });
       });
 
@@ -306,11 +359,13 @@ const { developmentChains } = require("../../helper-hardhat-config");
             tokenId,
             PRICE
           );
-          await nftMarketplace.buyListing(nftContractAddress, tokenId, {
+
+          let nftMarketplace1 = nftMarketplaceContract.connect(user);
+          await nftMarketplace1.buyListing(nftContractAddress, tokenId, {
             value: PRICE,
           });
           await nftMarketplace.withdrawProceeds();
-          const proceed = await nftMarketplace.getProceeds(deployer.address);
+          const proceed = await nftMarketplace.getProceeds(user.address);
           assert(proceed.toString() == 0);
         });
       });
