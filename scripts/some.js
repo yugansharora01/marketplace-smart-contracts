@@ -570,11 +570,11 @@ const getNFTMarketplaceContract = () => {
   return contract;
 };
 
-const getListing = async () => {
+const getListing = async (tokenId) => {
   const contract = getNFTMarketplaceContract();
   const result = await contract.getListing(
     "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-    1
+    tokenId
   );
   console.log(result);
 };
@@ -594,7 +594,7 @@ const writeFile = () => {
 };
 
 async function main() {
-  await getListing();
+  await getListing(0);
 }
 
 main()

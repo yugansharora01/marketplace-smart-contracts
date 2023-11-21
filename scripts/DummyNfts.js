@@ -544,9 +544,9 @@ const nftMarketplaceAbi = [
   },
 ];
 
-const account =
-  "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 const account1 =
+  "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
+const account =
   "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
 const getNFTContract = () => {
@@ -570,57 +570,79 @@ const getNFTMarketplaceContract = () => {
 };
 
 const ApproveNFT = async (tokenId, contract) => {
-  const nftMarketplaceAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-  result = await contract.approve(nftMarketplaceAddress, tokenId);
-  console.log("NFT Approved");
-  console.log(result);
+  try {
+    const nftMarketplaceAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+    result = await contract.approve(nftMarketplaceAddress, tokenId);
+    console.log("NFT Approved");
+    console.log(result);
+  } catch (error) {
+    console.log("ApproveNFT : " + tokenId.toString());
+    console.log(error);
+  }
 };
 
 const MintNFTs = async () => {
-  const contract = getNFTContract();
-  for (let i = 0; i < 10; i++) {
-    let result = await contract.safeMint(
-      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-      "hh"
-    );
-    console.log(result);
-    const reciept = await result.wait(1);
-    console.log(reciept);
-    tokenId = reciept.events[0].args.tokenId.toString();
-    await ApproveNFT(i, contract);
+  let i = 0;
+  let contract;
+  try {
+    contract = getNFTContract();
+    for (i = 0; i < 10; i++) {
+      let result = await contract.safeMint(
+        "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "hh"
+      );
+      console.log(result);
+      const reciept = await result.wait(1);
+      console.log(reciept);
+      tokenId = reciept.events[0].args.tokenId.toString();
+      await ApproveNFT(i, contract);
+    }
+  } catch (error) {
+    console.log("MintNFTs : " + i.toString());
+    console.log(error);
   }
 };
 
 const ListNFT = async (tokenId, price) => {
-  const contract = getNFTMarketplaceContract();
+  try {
+    const contract = getNFTMarketplaceContract();
 
-  let result = await contract.createListing(
-    "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-    tokenId,
-    price
-  );
-  console.log(result);
-  const reciept = await result.wait(1);
-  console.log(reciept);
+    let result = await contract.createListing(
+      "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      tokenId,
+      price
+    );
+    console.log(result);
+    const reciept = await result.wait(1);
+    console.log(reciept);
+  } catch (error) {
+    console.log("ListNFT : " + tokenId.toString());
+    console.log(error);
+  }
 };
 
 const UpdateListNFT = async (tokenId, price) => {
-  const contract = getNFTMarketplaceContract();
+  try {
+    const contract = getNFTMarketplaceContract();
 
-  let result = await contract.updateListing(
-    "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-    tokenId,
-    price
-  );
-  console.log(result);
-  const reciept = await result.wait(1);
-  console.log(reciept);
+    let result = await contract.updateListing(
+      "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      tokenId,
+      price
+    );
+    console.log(result);
+    const reciept = await result.wait(1);
+    console.log(reciept);
+  } catch (error) {
+    console.log("UpdateListNFT : " + tokenId.toString());
+    console.log(error);
+  }
 };
 
 async function main() {
-  //await MintNFTs();
-  await ApproveNFT(1, getNFTContract());
-  await ListNFT(1, 4000000000000000);
+  await MintNFTs();
+  await ApproveNFT(0, getNFTContract());
+  //await ListNFT(0, 4000000000000000);
   //await UpdateListNFT(1, 4000);
 }
 
