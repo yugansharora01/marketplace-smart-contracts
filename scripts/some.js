@@ -579,6 +579,12 @@ const getListing = async (tokenId) => {
   console.log(result);
 };
 
+const checkMinted = async (tokenId) => {
+  const contract = getNFTContract();
+  const result = await contract.tokenURI(tokenId);
+  console.log(result);
+};
+
 const writeFile = () => {
   console.log("hehe");
 
@@ -594,7 +600,8 @@ const writeFile = () => {
 };
 
 async function main() {
-  await getListing(0);
+  //await getListing(1);
+  await checkMinted(8);
 }
 
 main()
